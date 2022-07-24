@@ -1,10 +1,10 @@
-wisflux:
+dbt_1:
   target: dev
   outputs:
     dev:
       type: mysql
-      server: localhost
-      port: 3306
+      server: "{{ env_var('DB_HOST') }}"
+      port: "{{ env_var('DB_PORT') | as_number }}"
       schema: "airport_db"
       username: "{{ env_var('DB_USER') }}"
       password: "{{ env_var('DB_PASSWORD') }}"

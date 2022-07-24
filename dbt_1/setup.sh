@@ -42,8 +42,3 @@ source ./env/bin/activate
 # sudo apt install unixodbc
 
 # npm install -g @lightdash/cli
-
-# Export Environment Variables for Profile
-export DBT_PROFILES_DIR=./
-export DB_USER="airport_user"
-export DB_PASSEWORD="secret"
