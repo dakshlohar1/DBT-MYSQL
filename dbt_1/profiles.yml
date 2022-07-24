@@ -5,7 +5,7 @@ dbt_1:
       type: mysql
       server: "{{ env_var('DB_HOST') }}"
       port: "{{ env_var('DB_PORT') | as_number }}"
-      schema: "airport_db"
+      schema: "{{ env_var('DB_DATABASE') }}"
       username: "{{ env_var('DB_USER') }}"
       password: "{{ env_var('DB_PASSWORD') }}"
       ssl_disabled: True
