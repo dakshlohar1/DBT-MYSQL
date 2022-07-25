@@ -1,0 +1,9 @@
+version: 2
+
+sources:
+  - name: airline_source
+    description: Airline data
+    schema: airport_db
+    tables:
+      - name: airline
+        description: Details about airlines

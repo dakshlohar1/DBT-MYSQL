@@ -1,0 +1,10 @@
+
+version: 2
+
+models:
+  - name: airline_check__model
+    description: "A starter dbt model"
+    columns:
+      - name: airline_name
+        description: "Name of Airlines"
+        
