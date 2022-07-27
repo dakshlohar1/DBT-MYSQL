@@ -1,17 +1,12 @@
 import * as mysqlTypings from 'mysql';
 import * as mysql2 from 'mysql2';
-import { FieldPacket } from 'mysql2';
 import {
     CreateMysqlCredentials,
     DimensionType,
     WarehouseConnectionError,
     WarehouseQueryError,
 } from '../../../common';
-import { WarehouseClient } from '../types';
-
-interface FieldPacketWithColumnType extends FieldPacket {
-    columnType: number;
-}
+import { MysqlFieldPacketWithColumnType, WarehouseClient } from '../types';
 
 // Enum for all mysql data types https://dev.mysql.com/doc/refman/8.0/en/data-types.html
 export enum MysqlTypes {
@@ -139,24 +134,28 @@ export class MysqlClient implements WarehouseClient {
                 fields: Record<string, { type: DimensionType }>;
                 rows: Record<string, any>[];
             }>((resolve, reject) => {
-                this.pool.query(sql, (error, result, attributes) => {
+                this.pool.query(sql, (error, result, fields) => {
                     if (error) {
                         reject(new WarehouseQueryError(error.message));
                     }
-                    const fields = (
-                        attributes as FieldPacketWithColumnType[]
+                    const attributes = (
+                        fields as MysqlFieldPacketWithColumnType[]
                     ).reduce(
                         (acc, { name, columnType }) => ({
                             ...acc,
                             [name]: {
                                 type: convertDataTypeIdToDimensionType(
+                                    //TODO: there might be an issue
                                     columnType,
                                 ),
                             },
                         }),
                         {},
                     );
-                    resolve({ fields, rows: result as any });
+                    resolve({
+                        fields: attributes,
+                        rows: result as Record<string, any>[],
+                    }); //FIXME: fix this type casting
                 });
             });
 
@@ -203,7 +202,9 @@ export class MysqlClient implements WarehouseClient {
                    column_name,
                    data_type
             FROM information_schema.columns
-            WHERE table_schema IN (${Array.from(schemas) || Array.from(databases)})
+            WHERE table_schema IN (${
+                Array.from(schemas) || Array.from(databases)
+            })
             AND table_name IN (${Array.from(tables)})
         `;
         //TODO: Check for the upper OR condition
@@ -253,10 +254,10 @@ export class MysqlWarehouseClient
             host: credentials.host,
             user: credentials.user,
             password: credentials.password,
-            database: credentials.database || credentials.schema,
+            database: credentials.schema, // Mysql uses the schema as the database
             port: credentials.port,
             ssl: credentials.sslmode || 'PREFERRED',
-            enableKeepAlive: credentials.enableKeepAlive && true || undefined,
+            enableKeepAlive: credentials.enableKeepAlive || undefined,
             keepAliveInitialDelay: credentials.keepAliveInitialDelay,
         });
     }

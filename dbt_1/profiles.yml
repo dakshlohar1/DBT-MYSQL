@@ -3,6 +3,7 @@ dbt_1:
   outputs:
     dev:
       type: mysql
+      database: airport_db
       server: "{{ env_var('DB_HOST') }}"
       port: "{{ env_var('DB_PORT') | as_number }}"
       schema: "{{ env_var('DB_DATABASE') }}"

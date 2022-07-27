@@ -18,7 +18,7 @@ export enum SupportedDbtAdapter {
     SNOWFLAKE = 'snowflake',
     REDSHIFT = 'redshift',
     POSTGRES = 'postgres',
-    MYSQL = 'mysql'
+    MYSQL = 'mysql',
 }
 
 export type DbtNodeConfig = {
@@ -104,7 +104,6 @@ export const normaliseModelDatabase = (
         case SupportedDbtAdapter.POSTGRES:
         case SupportedDbtAdapter.BIGQUERY:
         case SupportedDbtAdapter.SNOWFLAKE:
-        case SupportedDbtAdapter.MYSQL:
         case SupportedDbtAdapter.REDSHIFT:
             if (model.database === null) {
                 throw new ParseError(
@@ -113,6 +112,14 @@ export const normaliseModelDatabase = (
                 );
             }
             return { ...model, database: model.database };
+        case SupportedDbtAdapter.MYSQL:
+            if (model.schema === null) {
+                throw new ParseError(
+                    `Cannot parse dbt model '${model.unique_id}' because the schema field has null value.`,
+                    {},
+                );
+            }
+            return { ...model, database: model.schema };
         case SupportedDbtAdapter.DATABRICKS:
             return { ...model, database: 'SPARK' };
         default:

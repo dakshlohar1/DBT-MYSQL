@@ -732,7 +732,7 @@ export enum WarehouseTypes {
     REDSHIFT = 'redshift',
     SNOWFLAKE = 'snowflake',
     DATABRICKS = 'databricks',
-    MYSQL = 'mysql'
+    MYSQL = 'mysql',
 }
 
 export type CreateBigqueryCredentials = {
@@ -805,15 +805,14 @@ export type PostgresCredentials = Omit<
 export type CreateMysqlCredentials = {
     type: WarehouseTypes.MYSQL;
     host: string;
+    schema: string;
     user: string;
     password: string;
     port: number;
-    database?: string;
-    schema: string;
-    // threads?: number; INFO: not supported by mysql community edition
     enableKeepAlive?: boolean;
     keepAliveInitialDelay?: number;
     sslmode?: string;
+    // threads?: number; INFO: not supported by mysql community edition
 };
 
 export type MysqlCredentials = Omit<

@@ -10,19 +10,23 @@ import { Target } from '../types';
 
 export type MysqlTarget = {
     type: 'mysql';
-    host: string;
-    user: string;
+
+    server?: string;
+    host?: string;
+
     port: number;
-    database?: string;
-    schema: string;
-    threads: number;
-    pass?: string;
+
+    username: string;
     password?: string;
-    keepalives_idle?: number;
-    connect_timeout?: number;
-    search_path?: string;
-    role?: string;
+    pass?: string;
+
+    schema?: string;
+    database?: string;
+
+    enableKeepAlive: boolean;
+    keepAliveInitialDelay?: number;
     sslmode?: string;
+    // threads: number; not supported in community version
 };
 
 export const mysqlSchema: JSONSchemaType<MysqlTarget> = {
@@ -32,18 +36,19 @@ export const mysqlSchema: JSONSchemaType<MysqlTarget> = {
             type: 'string',
             enum: ['mysql'],
         },
+        server: {
+            type: 'string',
+            nullable: true,
+        },
         host: {
             type: 'string',
+            nullable: true,
         },
-        user: {
+        username: {
             type: 'string',
         },
         port: {
             type: 'integer',
-        },
-        dbname: {
-            type: 'string',
-            nullable: true,
         },
         database: {
             type: 'string',
@@ -51,9 +56,6 @@ export const mysqlSchema: JSONSchemaType<MysqlTarget> = {
         },
         schema: {
             type: 'string',
-        },
-        threads: {
-            type: 'integer',
             nullable: true,
         },
         pass: {
@@ -64,33 +66,24 @@ export const mysqlSchema: JSONSchemaType<MysqlTarget> = {
             type: 'string',
             nullable: true,
         },
-        keepalives_idle: {
+        keepAliveInitialDelay: {
             type: 'integer',
             nullable: true,
         },
-        connect_timeout: {
-            type: 'integer',
+        enableKeepAlive: {
+            type: 'boolean',
             nullable: true,
-        },
-        search_path: {
-            type: 'string',
-            nullable: true,
-        },
-        role: {
-            type: 'string',
-            nullable: true,
+            default: false,
         },
         sslmode: {
             type: 'string',
             nullable: true,
         },
     },
-    required: ['type', 'host', 'user', 'port', 'schema'],
+    required: ['type', 'username', 'port'],
 };
 
-export const convertMysqlSchema = (
-    target: Target,
-): CreateMysqlCredentials => {
+export const convertMysqlSchema = (target: Target): CreateMysqlCredentials => {
     const validate = ajv.compile<MysqlTarget>(mysqlSchema);
     if (validate(target)) {
         const password = target.pass || target.password;
@@ -99,23 +92,27 @@ export const convertMysqlSchema = (
                 `Mysql target requires a password: "password"`,
             );
         }
-        const dbname = target.dbname || target.database;
+        const host = target.host || target.server; // target contains the host name as server
+        if (!host) {
+            throw new ParseError(
+                `Mysql target requires a host: "host or server"`,
+            );
+        }
+        const dbname = target.database || target.schema;
         if (!dbname) {
             throw new ParseError(
-                `Mysql target requires a database name: "database"`,
+                `Mysql target requires a database or schema name: "database or schema"`,
             );
         }
         return {
             type: WarehouseTypes.MYSQL,
-            host: target.host,
-            user: target.user,
+            host,
+            user: target.username,
             password,
             port: target.port,
-            dbname,
-            schema: target.schema,
-            keepalivesIdle: target.keepalives_idle,
-            searchPath: target.search_path,
-            role: target.role,
+            schema: dbname,
+            enableKeepAlive: target.enableKeepAlive,
+            keepAliveInitialDelay: target.keepAliveInitialDelay,
             sslmode: target.sslmode,
         };
     }
