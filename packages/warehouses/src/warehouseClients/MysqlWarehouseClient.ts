@@ -1,68 +1,69 @@
+import * as mysqlTypings from 'mysql';
+import * as mysql2 from 'mysql2';
+import { FieldPacket } from 'mysql2';
 import {
     CreateMysqlCredentials,
     DimensionType,
     WarehouseConnectionError,
     WarehouseQueryError,
-} from '@lightdash/common';
-import * as pg from 'pg';
-import { PoolConfig } from 'pg';
+} from '../../../common';
 import { WarehouseClient } from '../types';
 
+interface FieldPacketWithColumnType extends FieldPacket {
+    columnType: number;
+}
+
+// Enum for all mysql data types https://dev.mysql.com/doc/refman/8.0/en/data-types.html
 export enum MysqlTypes {
-    INTEGER = 'integer',
+    BIT = 'bit',
+    TINYINT = 'tinyint',
+    SMALLINT = 'smallint',
+    MEDIUMINT = 'mediumint',
+    BIGINT = 'bigint',
+    SERIAL = 'serial',
     INT = 'int',
     INT2 = 'int2',
     INT4 = 'int4',
     INT8 = 'int8',
-    MONEY = 'money',
-    SMALLSERIAL = 'smallserial',
-    SERIAL = 'serial',
-    SERIAL2 = 'serial2',
-    SERIAL4 = 'serial4',
-    SERIAL8 = 'serial8',
-    BIGSERIAL = 'bigserial',
-    BIGINT = 'bigint',
-    SMALLINT = 'smallint',
-    BOOLEAN = 'boolean',
-    BOOL = 'bool',
-    DATE = 'date',
-    DOUBLE_PRECISION = 'double precision',
+    INTEGER = 'integer',
     FLOAT = 'float',
     FLOAT4 = 'float4',
     FLOAT8 = 'float8',
-    JSON = 'json',
-    JSONB = 'jsonb',
-    NUMERIC = 'numeric',
+    DOUBLE = 'double',
+    DOUBLE_PRECISION = 'double precision',
     DECIMAL = 'decimal',
     REAL = 'real',
+    NUMERIC = 'numeric',
+
+    DATE = 'date',
+    DATETIME = 'datetime',
+    TIMESTAMP = 'timestamp',
+    TIME = 'time',
+    YEAR = 'year',
+
+    NCHAR = 'nchar',
+    VARCHAR = 'varchar',
+    BINARY = 'binary',
+    BLOB = 'blob',
+    JSON = 'json',
     CHAR = 'char',
     CHARACTER = 'character',
-    NCHAR = 'nchar',
-    BPCHAR = 'bpchar',
-    VARCHAR = 'varchar',
-    CHARACTER_VARYING = 'character varying',
-    NVARCHAR = 'nvarchar',
     TEXT = 'text',
-    TIME = 'time',
-    TIME_TZ = 'timetz',
-    TIME_WITHOUT_TIME_ZONE = 'time without time zone',
-    TIMESTAMP = 'timestamp',
-    TIMESTAMP_TZ = 'timestamptz',
-    TIMESTAMP_WITHOUT_TIME_ZONE = 'timestamp without time zone',
+    SET = 'set',
+    BOOLEAN = 'boolean',
+    BOOL = 'bool',
 }
 
 const mapFieldType = (type: string): DimensionType => {
     switch (type) {
+        case MysqlTypes.BIT:
         case MysqlTypes.DECIMAL:
+        case MysqlTypes.TINYINT:
         case MysqlTypes.NUMERIC:
+        case MysqlTypes.MEDIUMINT:
         case MysqlTypes.INTEGER:
-        case MysqlTypes.MONEY:
-        case MysqlTypes.SMALLSERIAL:
         case MysqlTypes.SERIAL:
-        case MysqlTypes.SERIAL2:
-        case MysqlTypes.SERIAL4:
-        case MysqlTypes.SERIAL8:
-        case MysqlTypes.BIGSERIAL:
+        case MysqlTypes.INT:
         case MysqlTypes.INT2:
         case MysqlTypes.INT4:
         case MysqlTypes.INT8:
@@ -72,79 +73,96 @@ const mapFieldType = (type: string): DimensionType => {
         case MysqlTypes.FLOAT4:
         case MysqlTypes.FLOAT8:
         case MysqlTypes.DOUBLE_PRECISION:
+        case MysqlTypes.DOUBLE:
         case MysqlTypes.REAL:
+        case MysqlTypes.BOOLEAN: // FIXME: this is not a valid type in mysql
+        case MysqlTypes.BOOL:
             return DimensionType.NUMBER;
         case MysqlTypes.DATE:
+        case MysqlTypes.DATETIME:
+        case MysqlTypes.YEAR:
             return DimensionType.DATE;
+
         case MysqlTypes.TIME:
-        case MysqlTypes.TIME_TZ:
         case MysqlTypes.TIMESTAMP:
-        case MysqlTypes.TIMESTAMP_TZ:
-        case MysqlTypes.TIME_WITHOUT_TIME_ZONE:
-        case MysqlTypes.TIMESTAMP_WITHOUT_TIME_ZONE:
             return DimensionType.TIMESTAMP;
-        case MysqlTypes.BOOLEAN:
-        case MysqlTypes.BOOL:
-            return DimensionType.BOOLEAN;
         default:
             return DimensionType.STRING;
     }
 };
 
-const { builtins } = pg.types;
+const { Types: builtins } = mysqlTypings;
 const convertDataTypeIdToDimensionType = (
     dataTypeId: number,
 ): DimensionType => {
     switch (dataTypeId) {
-        case builtins.NUMERIC:
-        case builtins.MONEY:
-        case builtins.INT2:
-        case builtins.INT4:
-        case builtins.INT8:
-        case builtins.FLOAT4:
-        case builtins.FLOAT8:
+        case builtins.BIT:
+        case builtins.DECIMAL:
+        case builtins.DOUBLE:
+        case builtins.FLOAT:
+        case builtins.NEWDECIMAL:
+        case builtins.INT24:
             return DimensionType.NUMBER;
         case builtins.DATE:
+        case builtins.NEWDATE:
+        case builtins.DATETIME:
+        case builtins.DATETIME2:
+        case builtins.TIME:
+        case builtins.TIME2:
+        case builtins.YEAR:
             return DimensionType.DATE;
         case builtins.TIME:
-        case builtins.TIMETZ:
         case builtins.TIMESTAMP:
-        case builtins.TIMESTAMPTZ:
             return DimensionType.TIMESTAMP;
-        case builtins.BOOL:
-            return DimensionType.BOOLEAN;
+        // case builtins.BOOL:
+        //     return DimensionType.BOOLEAN;
         default:
             return DimensionType.STRING;
     }
 };
 
 export class MysqlClient implements WarehouseClient {
-    pool: pg.Pool;
+    pool: mysql2.Pool;
 
-    constructor(config: PoolConfig) {
+    constructor(config: mysql2.PoolOptions) {
         try {
-            const pool = new pg.Pool(config);
+            const pool = mysql2.createPool(config);
             this.pool = pool;
         } catch (e) {
-            throw new WarehouseConnectionError(e.message);
+            throw new WarehouseConnectionError((e as Error).message);
         }
     }
 
-    async runQuery(sql: string) {
+    runQuery(sql: string) {
         try {
-            const results = await this.pool.query(sql); // automatically checkouts client and cleans up
-            const fields = results.fields.reduce(
-                (acc, { name, dataTypeID }) => ({
-                    ...acc,
-                    [name]: {
-                        type: convertDataTypeIdToDimensionType(dataTypeID),
-                    },
-                }),
-                {},
-            );
-            return { fields, rows: results.rows };
+            const queryResult = new Promise<{
+                fields: Record<string, { type: DimensionType }>;
+                rows: Record<string, any>[];
+            }>((resolve, reject) => {
+                this.pool.query(sql, (error, result, attributes) => {
+                    if (error) {
+                        reject(new WarehouseQueryError(error.message));
+                    }
+                    const fields = (
+                        attributes as FieldPacketWithColumnType[]
+                    ).reduce(
+                        (acc, { name, columnType }) => ({
+                            ...acc,
+                            [name]: {
+                                type: convertDataTypeIdToDimensionType(
+                                    columnType,
+                                ),
+                            },
+                        }),
+                        {},
+                    );
+                    resolve({ fields, rows: result as any });
+                });
+            });
+
+            return queryResult;
         } catch (e) {
-            throw new WarehouseQueryError(e.message);
+            throw new WarehouseQueryError((e as Error).message);
         }
     }
 
@@ -185,10 +203,10 @@ export class MysqlClient implements WarehouseClient {
                    column_name,
                    data_type
             FROM information_schema.columns
-            WHERE table_catalog IN (${Array.from(databases)})
-              AND table_schema IN (${Array.from(schemas)})
-              AND table_name IN (${Array.from(tables)})
+            WHERE table_schema IN (${Array.from(schemas) || Array.from(databases)})
+            AND table_name IN (${Array.from(tables)})
         `;
+        //TODO: Check for the upper OR condition
 
         const { rows } = await this.runQuery(query);
         const catalog = rows.reduce(
@@ -232,11 +250,14 @@ export class MysqlWarehouseClient
 {
     constructor(credentials: CreateMysqlCredentials) {
         super({
-            connectionString: `jdbc:mysql//${credentials.user}:${credentials.password}@[${credentials.host}:${
-                credentials.port
-            }]/${
-                credentials.dbname
-            }?sslmode=${credentials.sslmode || 'prefer'}`,
+            host: credentials.host,
+            user: credentials.user,
+            password: credentials.password,
+            database: credentials.database || credentials.schema,
+            port: credentials.port,
+            ssl: credentials.sslmode || 'PREFERRED',
+            enableKeepAlive: credentials.enableKeepAlive && true || undefined,
+            keepAliveInitialDelay: credentials.keepAliveInitialDelay,
         });
     }
 }

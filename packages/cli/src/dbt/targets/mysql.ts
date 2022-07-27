@@ -13,7 +13,6 @@ export type MysqlTarget = {
     host: string;
     user: string;
     port: number;
-    dbname?: string;
     database?: string;
     schema: string;
     threads: number;

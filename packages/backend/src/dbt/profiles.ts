@@ -90,7 +90,7 @@ const credentialsTarget = (
                     user: envVarReference('user'),
                     password: envVarReference('password'),
                     port: credentials.port,
-                    dbname: credentials.dbname,
+                    dbname: credentials.database,
                     schema: credentials.schema,
                     threads: DEFAULT_THREADS,
                     keepalives_idle: credentials.keepalivesIdle,

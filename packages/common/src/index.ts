@@ -808,12 +808,11 @@ export type CreateMysqlCredentials = {
     user: string;
     password: string;
     port: number;
-    dbname: string;
+    database?: string;
     schema: string;
-    threads?: number;
-    keepalivesIdle?: number;
-    searchPath?: string;
-    role?: string;
+    // threads?: number; INFO: not supported by mysql community edition
+    enableKeepAlive?: boolean;
+    keepAliveInitialDelay?: number;
     sslmode?: string;
 };
 
